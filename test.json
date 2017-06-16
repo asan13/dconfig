@@ -1,0 +1,10 @@
+{
+    "db": {
+        "dbname": "asan",
+        "port": 5433
+    },
+
+    "dir": "sql",
+    "nodes": [1, 2, 3]
+}
+
