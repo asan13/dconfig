@@ -10,7 +10,7 @@ import std.json;
 import dconfig.meta;
 import dconfig.options;
 
-void readopt(string mem, T)(ref string[] args, ref T t) 
+void readOpt(string mem, T)(ref string[] args, ref T t) 
 {
     import std.getopt;
 
@@ -44,7 +44,7 @@ T readStruct(T)(ref T t, ref string[] args)
         }
         else
         {
-            readopt!mem(args, t);
+            readOpt!mem(args, t);
         }
     }
 
@@ -57,6 +57,9 @@ T readStruct(T)(ref T t, JSONValue jval)
 
     foreach (mem; settableMembers!(T))
     {
+        if (mem !in jval)
+            continue;
+
         enum m   = "t." ~ mem;
         alias mt = typeof(mixin(m));
 
@@ -192,7 +195,7 @@ unittest {
 
 
 /*
- *readopt
+ *readOpt
  */
 unittest {
     string[] args = ["test", "-D", "tezd", "--port", "42"];
@@ -205,11 +208,11 @@ unittest {
 
     Test t;
 
-    readopt!("dbname")(args, t);
+    readOpt!("dbname")(args, t);
     assert(t.dbname == "tezd");
     assert(args == ["test", "--port", "42"]);
 
-    readopt!("port")(args, t);
+    readOpt!("port")(args, t);
     assert(t.port == 42);
     assert(args == ["test"]);
 
@@ -227,6 +230,7 @@ unittest {
         }
 
         int x;
+        int y = 42;
         Z z;
     }
 
@@ -235,6 +239,7 @@ unittest {
     S s;
 
     auto t = readStruct!S(s, args); 
+    writeln(t);
 
 }
 
