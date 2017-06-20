@@ -10,26 +10,28 @@ import std.json;
 import dconfig.meta;
 import dconfig.options;
 
+
 void readOpt(string mem, T)(ref string[] args, ref T t) 
 {
     import std.getopt;
 
     enum m = "t." ~ mem;
-    static if (hasUDA!(mixin(m), OptionAttr))
+    static if (hasUDA!(mixin("T." ~ mem), OptionAttr))
     {
         string descr = getUDAs!(mixin(m), OptionAttr)[0].descr;
     }
     else 
     {
-        string descr = mem;
+        string descr = mem; 
     }
 
     getopt( args, 
             std.getopt.config.passThrough,  
-            descr,
+            descr.replace("_", "-"),
             &__traits(getMember, t, mem)
     );
 }
+
 
 T readStruct(T)(ref T t, ref string[] args)
 {
@@ -51,13 +53,22 @@ T readStruct(T)(ref T t, ref string[] args)
     return t;
 }
 
+template memberName(T, string mem) {
+    static if (hasUDA!(mixin("T."~mem), OptionAttr))
+        enum memberName = getUDAs!(mixin("T."~mem), OptionAttr)[0].descr;
+    else
+        enum memberName = mem;
+}
+
+
 T readStruct(T)(ref T t, JSONValue jval)
 {
     import std.range : ElementType;
 
     foreach (mem; settableMembers!(T))
     {
-        if (mem !in jval)
+        enum mname = memberName!(T, mem);
+        if (mname !in jval)
             continue;
 
         enum m   = "t." ~ mem;
@@ -65,11 +76,11 @@ T readStruct(T)(ref T t, JSONValue jval)
 
         static if ( is(mt == struct) || is(mt == class) )
         {
-            readStruct!mt(mixin(m), jval[mem]);
+            readStruct!mt(mixin(m), jval[mname]);
         }
         else static if ( !isSomeString!mt && isArray!mt)
         {
-            foreach (jv; jval[mem].array)
+            foreach (jv; jval[mname].array)
             {
                 alias et = ElementType!mt;
                 static if (is(et == struct) || is(et == class))
@@ -83,7 +94,7 @@ T readStruct(T)(ref T t, JSONValue jval)
         }
         else
         {
-            mixin(m) = jsonToType!mt(jval[mem]);
+            mixin(m) = jsonToType!mt(jval[mname]);
         }
     }
 
@@ -109,8 +120,11 @@ auto ref T jsonToType(T)(JSONValue jv)
 }
 
 unittest {
-    import std.file;
-    auto json = "test.json".readText.parseJSON;
+    //import std.file;
+    //auto json = "test.json".readText.parseJSON;
+    string str = `{"db":{"dbname":"asan","port":5433},"dir":"sql",`
+                ~ `"nodes":[1,2,3]}`;
+    auto json = str.parseJSON;
 
     struct Conf {
         struct DB {
@@ -121,12 +135,16 @@ unittest {
         DB db;
         string dir;
         int[] nodes;
+        string test = "test";
     }
 
     Conf c;
     c = readStruct!Conf(c, json);
 
-    assert( is(typeof(c) == Conf) );
+    assert(c.dir == "sql");
+    assert(c.db.port   == 5433);
+    assert(c.db.dbname == "asan");
+    assert(c.nodes == [1, 2, 3]);
 
 }
 
@@ -239,8 +257,6 @@ unittest {
     S s;
 
     auto t = readStruct!S(s, args); 
-    writeln(t);
-
 }
 
 

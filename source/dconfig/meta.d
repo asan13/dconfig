@@ -3,9 +3,11 @@ module dconfig.meta;
 import std.meta;
 import std.traits;
 
+import dconfig.options;
 
-enum IgnoreAttr;
-alias ignore = IgnoreAttr;
+
+//enum IgnoreAttr;
+//alias ignore = IgnoreAttr;
 
 template settableMembers(T) {
     alias settableMembers = filterSettables!(
@@ -19,10 +21,13 @@ template filterSettables(T, M...) {
     {
         static if (isSettable!(T, M[0]))
         {
-            alias filterSettables = AliasSeq!( 
-                    M[0], 
-                    filterSettables!(T, M[1..$])
-            );
+            static if (hasUDA!(mixin("T." ~ M[0]), IgnoreAttr))
+                alias filterSettables = filterSettables!(T, M[1..$]);
+            else
+                alias filterSettables = AliasSeq!( 
+                        M[0], 
+                        filterSettables!(T, M[1..$])
+                );
         }
         else
             alias filterSettables = filterSettables!(T, M[1..$]);
@@ -48,6 +53,10 @@ template isSettable(T, string M) {
         enum isSettable = false;
     else static if ( __traits(getProtection, mixin("T." ~ M)) != "public")
         enum isSettable = false;
+    else static if (__traits(isTemplate, __traits(getMember, T, M)))
+        enum isSettable = false;
+    //else static if (is(typeof(__traits(getMember, T, M)) == void))
+        //enum isSettable = false;
     else static if ( isAlias!(T, M) )
         enum isSettable = false;
     else static if (isFunction!(__traits(getMember, T, M)))

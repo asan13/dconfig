@@ -7,10 +7,5 @@
 	"description": "Application config and arguments process",
 	"copyright": "Copyright © 2017, asan13",
 	"license": "BSD",
-    "configurations": [
-        {
-            "name": "library",
-            "targetType": "library"
-        }
-    ]
+    "targetDir": "bin",
 }

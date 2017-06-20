@@ -19,7 +19,7 @@ OptionAttr option(T...)(T opts)
     return OptionAttr(vals);
 }
 
-alias opt = option;
+alias name = option;
 
 enum IgnoreAttr;
 alias ignore = IgnoreAttr;

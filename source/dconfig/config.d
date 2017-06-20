@@ -4,7 +4,7 @@ import std.stdio;
 import std.exception;
 import core.runtime;
 
-import dconfig.options;
+public import dconfig.options;
 import dconfig.parse;
 
 mixin template defVar(T) {
@@ -49,6 +49,7 @@ T readFromArgs(T)(ref string[] args)
     return readFromArgs(var, args);
 }
 
+
 T readFromArgs(T)(ref T cfg, string[] args) 
 {
     readStruct!T(cfg, args);
@@ -72,13 +73,21 @@ mixin template MyConfig() {
 
     static bool needHelp() @property { return _needHelp; }
 
-    static auto ref getConfig()
+    static auto ref get()
     {
         return _cfg;
     }
 
+    void dumpConfig() {
 
-    static Type initConfig(string file, string[] args)
+    }
+
+    static auto ref getCommandOpts(T)()
+    {
+        return readFromArgs!T(g_args);
+    }
+
+    static Type init(string file = null, string[] args = null)
     {
         import std.getopt;
 
@@ -86,6 +95,12 @@ mixin template MyConfig() {
             Type cfg = new Type;
         else 
             Type cfg;
+
+        if (!args.length)
+        {
+            import core.runtime;
+            args = Runtime.args;
+        }
 
         _cfg   = cfg;
         g_args = args;
@@ -97,18 +112,35 @@ mixin template MyConfig() {
             if (needHelp) return _cfg;
         }
 
-        
-        readFromFile!Type(_cfg, file);
+        if (args.length > 1)
+        {
+            getopt(g_args, std.getopt.config.passThrough, "config", &file);
+        }
+
+        if (!file.length)
+        {
+            import std.path;
+            import std.file;
+
+            string defFile = args[0].baseName.stripExtension ~ ".json";
+            if (defFile.exists && defFile.isFile)
+                file = defFile;
+        }
+
+        if (file.length) 
+            readFromFile!Type(_cfg, file);
+
 
         if (args.length > 1)
             readFromArgs!Type(_cfg, g_args);
 
         return _cfg;
     }
+
 }
 
-unittest {
-    struct Config {
+version (unittest) {
+    struct TestConfig {
         mixin MyConfig;
         struct DB {
             string dbname;
@@ -120,18 +152,26 @@ unittest {
         int[]  nodes;
         string table;
     }
+}
 
-    auto cfg = readFromFile!Config("test.json");
+unittest {
+
+    auto cfg = readFromFile!TestConfig("test.json");
     assert(cfg.dir     == "sql");
     assert(cfg.db.port == 5433);
 
-    string[] args = ["cmd", "--dir", "dump", "--port", "123"];
+    string[] args = ["cmd", "--dir", "dump", "--port", "123", "--foo", "bar"];
     cfg = readFromArgs(cfg, args);
     assert(cfg.dir     == "dump");
     assert(cfg.db.port == 123);
 
     args ~= ["--table", "zzz"];
-    cfg = Config.initConfig("test.json", args);
-    writeln(Config.getConfig);
+    cfg = TestConfig.init("test.json", args);
+    assert(cfg.table == "zzz");
 
+    struct S {
+        string foo;
+    }
+    auto s = cfg.getCommandOpts!S();
+    assert(s.foo == "bar");
 }
